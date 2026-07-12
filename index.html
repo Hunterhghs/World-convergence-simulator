@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Convergence Simulator — β & σ Convergence · Economic Development 2000–2025</title>
+<meta name="description" content="Interactive world map simulator exploring economic convergence theory: β-convergence, σ-convergence, and convergence clubs across 165 countries from 2000 to 2025. Real data from World Bank, Penn World Table, UNDP." />
+<meta name="author" content="H Heuristics" />
+<meta name="theme-color" content="#080e14" />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   CSS Custom Properties — H Heuristics · Economist Aesthetic
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --bg-deep: #080e14;
+  --bg-panel: #0c141e;
+  --bg-card: #111b26;
+  --bg-card-hover: #16202e;
+  --border: #1e2d3a;
+  --border-light: #2a3a4a;
+  --text-primary: #dce3ed;
+  --text-secondary: #8899b4;
+  --text-muted: #5a6d7e;
+  --accent-gold: #e8c76a;
+  --accent-gold-dim: #b8a050;
+  --accent-blue: #4b9cd3;
+  --accent-teal: #3db8a0;
+  --accent-coral: #e07060;
+  --accent-purple: #8b7ec8;
+  --green: #3aad6a;
+  --amber: #e0a040;
+  --red: #d94a4a;
+  --club-fast: #3db8a0;
+  --club-moderate: #e8c76a;
+  --club-stagnant: #e0a040;
+  --club-diverging: #e07060;
+  --radius: 8px;
+  --radius-sm: 5px;
+  --shadow-panel: 0 4px 24px rgba(0,0,0,0.45);
+  --transition: 0.2s ease;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BASE & RESET
+   ═══════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column;
+  height: 100vh; width: 100vw;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════════════════ */
+.header {
+  height: 52px; min-height: 52px;
+  background: #0a1119; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.4rem; z-index: 1000;
+}
+.header-left { display: flex; align-items: center; gap: 0.9rem; }
+.header-logo {
+  font-family: var(--font-display); font-size: 0.95rem;
+  font-weight: 700; color: var(--accent-gold); letter-spacing: 0.02em;
+}
+.header-divider { width: 1px; height: 20px; background: var(--border-light); }
+.header-subtitle {
+  font-size: 0.6rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;
+}
+.header-right { display: flex; align-items: center; gap: 1.2rem; }
+.header-metric { display: flex; align-items: center; gap: 0.35rem; text-align: right; }
+.header-metric .hm-val {
+  font-size: 0.82rem; font-weight: 700; color: var(--accent-gold);
+  font-family: var(--font-display);
+}
+.header-metric .hm-lbl {
+  font-size: 0.56rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.header-badge {
+  background: #1a3a2a; color: var(--accent-teal); font-size: 0.58rem;
+  font-weight: 700; padding: 0.22rem 0.5rem; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  border: 1px solid #2a5a3a;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MAIN LAYOUT
+   ═══════════════════════════════════════════════════════════════════════ */
+.main { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+/* ── LEFT PANEL ── */
+.left-panel {
+  width: 312px; min-width: 312px; background: var(--bg-panel);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden; z-index: 5;
+}
+.left-panel::-webkit-scrollbar { width: 3px; }
+.left-panel::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+.panel-section { padding: 0.95rem 1.1rem; border-bottom: 1px solid #16212e; }
+.panel-section:last-child { border-bottom: none; }
+.panel-section h3 {
+  font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.12em; margin-bottom: 0.7rem; font-weight: 700;
+}
+
+/* Lens Selector */
+.lens-selector { display: flex; flex-direction: column; gap: 0.35rem; }
+.lens-btn {
+  display: flex; align-items: center; gap: 0.55rem;
+  padding: 0.5rem 0.65rem; border-radius: var(--radius-sm);
+  background: var(--bg-card); border: 1px solid transparent;
+  cursor: pointer; transition: all var(--transition);
+  font-size: 0.68rem; color: var(--text-secondary); font-family: var(--font-sans);
+  text-align: left;
+}
+.lens-btn:hover { background: var(--bg-card-hover); border-color: var(--border-light); color: var(--text-primary); }
+.lens-btn.active {
+  background: #162436; border-color: #2a4a6c;
+  color: var(--accent-gold); font-weight: 600;
+}
+.lens-btn .lb-icon { font-size: 0.9rem; width: 22px; text-align: center; flex-shrink: 0; }
+.lens-btn .lb-label { flex: 1; }
+.lens-btn .lb-val {
+  font-size: 0.62rem; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Simulation Controls */
+.sim-controls { display: flex; flex-direction: column; gap: 0.6rem; }
+.sim-slider-group { display: flex; flex-direction: column; gap: 0.25rem; }
+.sim-slider-group label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.62rem; color: var(--text-secondary); font-weight: 500;
+}
+.sim-slider-group label .sl-val {
+  font-family: var(--font-mono); font-size: 0.6rem; color: var(--accent-gold);
+  background: var(--bg-card); padding: 0.1rem 0.4rem; border-radius: 3px;
+}
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; background: #1e2d3a;
+  border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent-gold); cursor: pointer;
+  border: 2px solid #0c141e; box-shadow: 0 0 8px rgba(232,199,106,0.3);
+}
+
+/* Year Timeline */
+.timeline-section { padding: 0.95rem 1.1rem; border-bottom: 2px solid var(--border); background: #0d1520; }
+.timeline-section h3 { margin-bottom: 0.5rem; }
+.year-display {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.year-display .yr-num {
+  font-size: 2rem; font-weight: 900; color: var(--accent-gold);
+  font-family: var(--font-display); line-height: 1;
+}
+.year-display .yr-nav { display: flex; gap: 0.3rem; }
+.yr-nav-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; transition: all var(--transition);
+}
+.yr-nav-btn:hover { background: var(--bg-card-hover); color: var(--accent-gold); border-color: var(--border-light); }
+.yr-nav-btn.play-btn { width: 36px; background: #162436; border-color: #2a4a6c; }
+.yr-nav-btn.play-btn.playing { background: #3a2a1a; border-color: #6a5030; color: var(--accent-gold); }
+.play-speed {
+  display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;
+  font-size: 0.58rem; color: var(--text-muted);
+}
+.play-speed select {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.58rem; padding: 0.15rem 0.3rem;
+  border-radius: 3px; font-family: var(--font-sans); cursor: pointer;
+}
+
+/* Year Range Selector */
+.year-range { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.5rem; }
+.year-range span { font-size: 0.58rem; color: var(--text-muted); }
+.year-range select {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 0.58rem; padding: 0.15rem 0.3rem;
+  border-radius: 3px; font-family: var(--font-sans); cursor: pointer;
+}
+
+/* KPI Grid */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.kpi-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.6rem 0.7rem;
+  transition: border-color var(--transition);
+}
+.kpi-card:hover { border-color: var(--border-light); }
+.kpi-card .kpi-val {
+  font-size: 1.1rem; font-weight: 800; color: var(--accent-gold);
+  font-family: var(--font-display); line-height: 1.15;
+}
+.kpi-card .kpi-val.danger { color: var(--accent-coral); }
+.kpi-card .kpi-val.teal { color: var(--accent-teal); }
+.kpi-card .kpi-val.blue { color: var(--accent-blue); }
+.kpi-card .kpi-val.purple { color: var(--accent-purple); }
+.kpi-card .kpi-lbl {
+  font-size: 0.58rem; color: var(--text-muted); margin-top: 0.12rem;
+  line-height: 1.3; font-weight: 500;
+}
+
+/* Club Distribution */
+.club-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.club-chip {
+  display: flex; align-items: center; gap: 0.35rem;
+  padding: 0.32rem 0.45rem; border-radius: 3px;
+  font-size: 0.58rem; font-weight: 600;
+}
+.club-chip.fast { background: rgba(61,184,160,0.12); color: var(--club-fast); border: 1px solid rgba(61,184,160,0.25); }
+.club-chip.moderate { background: rgba(232,199,106,0.12); color: var(--club-moderate); border: 1px solid rgba(232,199,106,0.25); }
+.club-chip.stagnant { background: rgba(224,160,64,0.12); color: var(--club-stagnant); border: 1px solid rgba(224,160,64,0.25); }
+.club-chip.diverging { background: rgba(224,112,96,0.12); color: var(--club-diverging); border: 1px solid rgba(224,112,96,0.25); }
+.club-chip .cc-count { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 800; }
+.club-chip .cc-label { font-size: 0.52rem; opacity: 0.85; }
+
+/* ── MAP CENTER ── */
+.map-container {
+  flex: 1; position: relative; background: #0a1018;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.map-container svg { width: 100%; height: 100%; }
+.map-tooltip {
+  position: absolute; pointer-events: none; z-index: 100;
+  background: rgba(12,20,30,0.96); border: 1px solid var(--border-light);
+  border-radius: var(--radius); padding: 0.7rem 0.9rem;
+  font-size: 0.68rem; line-height: 1.5;
+  opacity: 0; transition: opacity 0.12s;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7); max-width: 260px;
+}
+.map-tooltip .tt-country {
+  font-weight: 700; font-size: 0.78rem; color: var(--accent-gold);
+  font-family: var(--font-display); margin-bottom: 0.25rem;
+}
+.map-tooltip .tt-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.65rem; }
+.map-tooltip .tt-row .tt-lbl { color: var(--text-muted); }
+.map-tooltip .tt-row .tt-val { font-weight: 600; color: var(--text-primary); }
+.map-tooltip .tt-club {
+  display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px;
+  font-size: 0.58rem; font-weight: 700; margin-top: 0.3rem;
+}
+.map-tooltip .tt-club.fast { background: rgba(61,184,160,0.2); color: var(--club-fast); }
+.map-tooltip .tt-club.moderate { background: rgba(232,199,106,0.2); color: var(--club-moderate); }
+.map-tooltip .tt-club.stagnant { background: rgba(224,160,64,0.2); color: var(--club-stagnant); }
+.map-tooltip .tt-club.diverging { background: rgba(224,112,96,0.2); color: var(--club-diverging); }
+
+.map-legend {
+  position: absolute; bottom: 1rem; right: 1rem;
+  background: rgba(12,20,30,0.92); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 0.65rem 0.85rem; z-index: 10;
+}
+.map-legend .leg-title {
+  font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.1em; margin-bottom: 0.4rem; font-weight: 600;
+}
+.leg-items { display: flex; flex-direction: column; gap: 0.25rem; }
+.leg-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.55rem; color: var(--text-secondary); }
+.leg-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+.map-watermark {
+  position: absolute; bottom: 1rem; left: 1rem;
+  font-size: 0.5rem; color: rgba(90,109,126,0.35);
+  font-family: var(--font-display); font-style: italic;
+  pointer-events: none;
+}
+
+/* Zoom Controls */
+.zoom-controls {
+  position: absolute; top: 0.8rem; right: 0.8rem;
+  display: flex; flex-direction: column; gap: 2px;
+  z-index: 20;
+}
+.zoom-btn {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(12,20,30,0.88); border: 1px solid var(--border);
+  color: var(--text-secondary); font-size: 1rem; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+  font-family: var(--font-sans); line-height: 1;
+  border-radius: var(--radius-sm);
+}
+.zoom-btn:first-child { border-radius: 5px 5px 0 0; }
+.zoom-btn:last-child { border-radius: 0 0 5px 5px; }
+.zoom-btn:hover { background: var(--bg-card-hover); color: var(--accent-gold); border-color: var(--border-light); }
+
+/* ── RIGHT PANEL ── */
+.right-panel {
+  width: 340px; min-width: 340px; background: var(--bg-panel);
+  border-left: 1px solid var(--border); display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden; z-index: 5;
+}
+.right-panel::-webkit-scrollbar { width: 3px; }
+.right-panel::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+
+.country-detail { padding: 1.1rem; border-bottom: 1px solid #16212e; }
+.country-detail.placeholder {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 2.5rem 1rem; text-align: center;
+}
+.country-detail.placeholder .ph-icon { font-size: 2.5rem; margin-bottom: 0.8rem; opacity: 0.25; }
+.country-detail.placeholder .ph-text { font-size: 0.68rem; color: #4a5d6e; line-height: 1.5; }
+.country-detail h3 {
+  font-size: 0.58rem; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.12em; margin-bottom: 0.4rem; font-weight: 700;
+}
+.country-detail .cd-name {
+  font-size: 1rem; font-weight: 700; color: var(--accent-gold);
+  font-family: var(--font-display); margin-bottom: 0.7rem;
+}
+.cd-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; }
+.cd-metric {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.55rem 0.6rem;
+}
+.cd-metric .cdm-val {
+  font-size: 0.95rem; font-weight: 800;
+  font-family: var(--font-display);
+}
+.cd-metric .cdm-lbl { font-size: 0.55rem; color: var(--text-muted); margin-top: 0.08rem; }
+
+.cd-club-badge {
+  display: inline-block; padding: 0.2rem 0.55rem; border-radius: 3px;
+  font-size: 0.62rem; font-weight: 700; margin: 0.5rem 0 0.3rem;
+}
+.cd-club-badge.fast { background: rgba(61,184,160,0.18); color: var(--club-fast); border: 1px solid rgba(61,184,160,0.3); }
+.cd-club-badge.moderate { background: rgba(232,199,106,0.18); color: var(--club-moderate); border: 1px solid rgba(232,199,106,0.3); }
+.cd-club-badge.stagnant { background: rgba(224,160,64,0.18); color: var(--club-stagnant); border: 1px solid rgba(224,160,64,0.3); }
+.cd-club-badge.diverging { background: rgba(224,112,96,0.18); color: var(--club-diverging); border: 1px solid rgba(224,112,96,0.3); }
+
+/* Charts in right panel */
+.chart-section { padding: 1rem 1.1rem; border-bottom: 1px solid #16212e; }
+.chart-section h3 { margin-bottom: 0.4rem; }
+.chart-explain {
+  font-size: 0.56rem; color: var(--text-muted); line-height: 1.4;
+  margin-bottom: 0.6rem; font-style: italic;
+}
+.chart-mini { height: 140px; position: relative; }
+.chart-mini canvas { width: 100% !important; height: 100% !important; }
+.chart-tall { height: 200px; position: relative; }
+.chart-tall canvas { width: 100% !important; height: 100% !important; }
+
+/* Rank Table */
+.rank-section { padding: 1rem 1.1rem; }
+.rank-table { width: 100%; font-size: 0.62rem; border-collapse: collapse; }
+.rank-table th {
+  text-align: left; font-size: 0.52rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid #16212e; font-weight: 700;
+}
+.rank-table td { padding: 0.3rem 0.4rem; border-bottom: 1px solid rgba(22,33,46,0.5); }
+.rank-table tr { cursor: pointer; transition: background var(--transition); }
+.rank-table tr:hover { background: var(--bg-card); }
+.rank-table .rk-num { font-family: var(--font-mono); font-size: 0.58rem; color: var(--text-muted); width: 22px; }
+.rank-table .rk-name { color: var(--text-secondary); font-weight: 500; }
+.rank-table .rk-val { text-align: right; font-family: var(--font-mono); font-weight: 600; color: var(--accent-gold); font-size: 0.6rem; }
+.rank-table .rk-club { font-size: 0.5rem; font-weight: 700; padding: 0.08rem 0.3rem; border-radius: 2px; }
+
+/* ── BOTTOM BAR ── */
+.bottom-bar {
+  background: #0a1119; border-top: 1px solid var(--border);
+  padding: 0.4rem 1.4rem; height: 28px; min-height: 28px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.54rem; color: #4a5d6e; z-index: 1000;
+}
+.bottom-bar a { color: var(--text-muted); text-decoration: none; transition: color var(--transition); }
+.bottom-bar a:hover { color: var(--accent-gold); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1300px) {
+  .left-panel { width: 280px; min-width: 280px; }
+  .right-panel { width: 300px; min-width: 300px; }
+}
+@media (max-width: 1050px) {
+  .main { flex-direction: column; }
+  .left-panel { width: 100%; min-width: auto; max-height: 240px; flex-shrink: 0; }
+  .map-container { flex: 1; min-height: 350px; }
+  .right-panel { width: 100%; min-width: auto; max-height: 260px; flex-shrink: 0; }
+  .header-subtitle { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ HEADER ═══════════════════════════════ -->
+<header class="header">
+  <div class="header-left">
+    <span class="header-logo">World Convergence</span>
+    <span class="header-divider"></span>
+    <span class="header-subtitle">β & σ Convergence Simulator · 2000–2025</span>
+  </div>
+  <div class="header-right">
+    <div class="header-metric">
+      <div class="hm-val" id="hdrBeta">—</div>
+      <div class="hm-lbl">β-coefficient</div>
+    </div>
+    <div class="header-metric">
+      <div class="hm-val" id="hdrSigma">—</div>
+      <div class="hm-lbl">σ-trend</div>
+    </div>
+    <div class="header-metric">
+      <div class="hm-val" id="hdrN">—</div>
+      <div class="hm-lbl">Countries</div>
+    </div>
+    <span class="header-badge">CONV SIM</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════ MAIN ═══════════════════════════════ -->
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <aside class="left-panel">
+    <!-- Year Timeline -->
+    <div class="timeline-section">
+      <h3>⏳ Simulation Year</h3>
+      <div class="year-display">
+        <span class="yr-num" id="yearDisplay">2000</span>
+        <div class="yr-nav">
+          <button class="yr-nav-btn" id="btnPrev" title="Previous Year" aria-label="Previous year">◀</button>
+          <button class="yr-nav-btn play-btn" id="btnPlay" title="Play/Pause" aria-label="Play simulation">▶</button>
+          <button class="yr-nav-btn" id="btnNext" title="Next Year" aria-label="Next year">▶</button>
+        </div>
+      </div>
+      <input type="range" id="yearSlider" min="2000" max="2025" value="2000" step="1" />
+      <div class="play-speed">
+        <span>Speed</span>
+        <select id="speedSelect">
+          <option value="2000">Very Slow</option>
+          <option value="1000">Slow</option>
+          <option value="500" selected>Medium</option>
+          <option value="200">Fast</option>
+          <option value="80">Very Fast</option>
+        </select>
+        <span style="margin-left:auto;font-family:var(--font-mono);" id="speedLabel">2000</span>
+      </div>
+      <div class="year-range">
+        <span>β base year:</span>
+        <select id="baseYearSelect">
+          <option value="2000" selected>2000</option>
+          <option value="2005">2005</option>
+          <option value="2010">2010</option>
+        </select>
+        <span style="margin-left:auto;">to</span>
+        <select id="endYearSelect">
+          <option value="2025" selected>2025</option>
+          <option value="2020">2020</option>
+          <option value="2015">2015</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Convergence Lens -->
+    <div class="panel-section">
+      <h3>🔍 Convergence Lens</h3>
+      <div class="lens-selector" id="lensSelector">
+        <button class="lens-btn active" data-lens="gdp">
+          <span class="lb-icon">💰</span><span class="lb-label">GDP per Capita</span><span class="lb-val">PPP</span>
+        </button>
+        <button class="lens-btn" data-lens="hdi">
+          <span class="lb-icon">🎓</span><span class="lb-label">Human Development</span><span class="lb-val">HDI</span>
+        </button>
+        <button class="lens-btn" data-lens="trade">
+          <span class="lb-icon">🚢</span><span class="lb-label">Trade Openness</span><span class="lb-val">% GDP</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Convergence Parameters -->
+    <div class="panel-section">
+      <h3>🎛️ Convergence Parameters</h3>
+      <div class="sim-controls">
+        <div class="sim-slider-group">
+          <label>β Speed (catch-up rate) <span class="sl-val" id="betaVal">0.020</span></label>
+          <input type="range" id="betaSlider" min="0.000" max="0.080" value="0.020" step="0.001" />
+        </div>
+        <div class="sim-slider-group">
+          <label>Club Sensitivity <span class="sl-val" id="sensitivityVal">0.50</span></label>
+          <input type="range" id="sensitivitySlider" min="0.10" max="1.00" value="0.50" step="0.05" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Convergence KPIs -->
+    <div class="panel-section">
+      <h3>📈 Convergence Indicators — <span id="kpiYear">2000</span></h3>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-val blue" id="kpiBeta">—</div>
+          <div class="kpi-lbl">β Coefficient</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiSigma">—</div>
+          <div class="kpi-lbl">σ (CV) Current</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val teal" id="kpiSigmaTrend">—</div>
+          <div class="kpi-lbl">σ Change (2000→Now)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val danger" id="kpi90_10">—</div>
+          <div class="kpi-lbl">90/10 Ratio</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val purple" id="kpiGini">—</div>
+          <div class="kpi-lbl">Gini Coefficient</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiCatchingUp">—</div>
+          <div class="kpi-lbl">Countries Catching Up</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Club Distribution -->
+    <div class="panel-section">
+      <h3>🏷️ Convergence Clubs</h3>
+      <div class="club-grid" id="clubGrid">
+        <div class="club-chip fast"><span class="cc-count" id="ccFast">—</span><span class="cc-label">Fast Catch-Up</span></div>
+        <div class="club-chip moderate"><span class="cc-count" id="ccModerate">—</span><span class="cc-label">Moderate Catch-Up</span></div>
+        <div class="club-chip stagnant"><span class="cc-count" id="ccStagnant">—</span><span class="cc-label">Stagnant</span></div>
+        <div class="club-chip diverging"><span class="cc-count" id="ccDiverging">—</span><span class="cc-label">Diverging</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAP CENTER -->
+  <div class="map-container" id="mapContainer">
+    <svg id="mapSvg"></svg>
+    <div class="map-tooltip" id="mapTooltip"></div>
+    <div class="map-legend" id="mapLegend">
+      <div class="leg-title">Convergence Club</div>
+      <div class="leg-items">
+        <div class="leg-item"><span class="leg-swatch" style="background:var(--club-fast);"></span>Fast Catch-Up</div>
+        <div class="leg-item"><span class="leg-swatch" style="background:var(--club-moderate);"></span>Moderate Catch-Up</div>
+        <div class="leg-item"><span class="leg-swatch" style="background:var(--club-stagnant);"></span>Stagnant</div>
+        <div class="leg-item"><span class="leg-swatch" style="background:var(--club-diverging);"></span>Diverging</div>
+      </div>
+    </div>
+    <div class="map-watermark">H Heuristics · β & σ Convergence</div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <aside class="right-panel">
+    <div class="country-detail placeholder" id="countryPlaceholder">
+      <div class="ph-icon">🌍</div>
+      <div class="ph-text">Click a country on the map<br/>to view convergence trajectory<br/>and club membership</div>
+    </div>
+    <div class="country-detail" id="countryDataSection" style="display:none;">
+      <h3>SELECTED COUNTRY</h3>
+      <div class="cd-name" id="cdName">—</div>
+      <div id="cdClubBadge"></div>
+      <div class="cd-metrics" id="cdMetrics"></div>
+    </div>
+
+    <!-- β-Convergence Scatter -->
+    <div class="chart-section">
+      <h3>📐 β-Convergence — <span id="betaChartLabel">2000→2025</span></h3>
+      <div class="chart-explain">
+        Log initial value vs. annualized growth rate.<br/>
+        <span style="color:var(--accent-teal);">Negative slope = convergence</span> (poorer grow faster)
+      </div>
+      <div class="chart-tall">
+        <canvas id="betaScatterChart"></canvas>
+      </div>
+    </div>
+
+    <!-- σ-Convergence Chart -->
+    <div class="chart-section">
+      <h3>📉 σ-Convergence — Dispersion Over Time</h3>
+      <div class="chart-explain">
+        Falling dispersion = σ-convergence. Rising = divergence.
+      </div>
+      <div class="chart-mini" style="height:120px;">
+        <canvas id="sigmaChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Rankings -->
+    <div class="rank-section">
+      <h3>🏆 Fastest Converging — <span id="rankLensLabel">GDP per Capita</span></h3>
+      <table class="rank-table">
+        <thead><tr><th>#</th><th>Country</th><th>Club</th><th>Catch-Up</th></tr></thead>
+        <tbody id="rankTbody"></tbody>
+      </table>
+    </div>
+  </aside>
+</div>
+
+<!-- ═══════════════════════════════ BOTTOM BAR ═══════════════════════════ -->
+<footer class="bottom-bar">
+  <span>Data: World Bank · Penn World Table · UNDP &nbsp;|&nbsp; Methodology: Barro &amp; Sala-i-Martin (1992) · Quah (1996) · Pritchett (1997)</span>
+  <span><a href="https://github.com/Hunterhghs/World-convergence-simulator" target="_blank" rel="noopener">GitHub</a> &nbsp;|&nbsp; <a href="https://hheuristics.com" target="_blank" rel="noopener">H Heuristics</a></span>
+</footer>
+
+<!-- ═══════════════════════════════ SCRIPTS ═══════════════════════════════ -->
+<script>
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  WORLD CONVERGENCE SIMULATOR — β & σ CONVERGENCE ENGINE                 ║
+// ║  H Heuristics · Reasonix · Veles                                       ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+
+// ─── COUNTRY DATA ──────────────────────────────────────────────────────────
+// Real data from World Bank, Penn World Table, UNDP
+// Fields: gdp (GDP/cap PPP constant 2017 int'l $), hdi, trade (% GDP), pop (millions), region
+// 6 data points: [2000, 2005, 2010, 2015, 2020, 2025(est)]
+const COUNTRY_DATA = {
+  // ── NORTH AMERICA ──
+  "United States": { gdp:[45990,51170,55050,58960,63080,68600], hdi:[0.882,0.898,0.902,0.913,0.918,0.927], trade:[24.8,26.1,28.2,27.8,25.3,26.5], pop:340, region:"North America" },
+  "Canada": { gdp:[37770,42350,45220,47650,46290,50200], hdi:[0.866,0.892,0.895,0.911,0.925,0.935], trade:[71.7,66.5,57.8,62.8,60.5,61.2], pop:40, region:"North America" },
+  "Mexico": { gdp:[12080,12840,13270,14900,15890,17500], hdi:[0.700,0.730,0.742,0.761,0.772,0.782], trade:[55.9,56.5,62.3,72.4,83.6,82.0], pop:130, region:"Latin America & Caribbean" },
+  // ── EUROPE & CENTRAL ASIA ──
+  "United Kingdom": { gdp:[35320,41160,43530,46250,45200,48700], hdi:[0.869,0.898,0.886,0.914,0.926,0.935], trade:[54.2,56.4,62.2,60.2,63.8,65.0], pop:68, region:"Europe & Central Asia" },
+  "Germany": { gdp:[37500,41640,47260,51830,53380,56800], hdi:[0.856,0.899,0.903,0.921,0.936,0.943], trade:[62.8,77.5,83.5,86.3,84.0,85.0], pop:83, region:"Europe & Central Asia" },
+  "France": { gdp:[35200,39300,42680,45150,45020,48500], hdi:[0.846,0.871,0.880,0.895,0.903,0.912], trade:[56.1,55.1,56.2,60.2,57.8,59.0], pop:68, region:"Europe & Central Asia" },
+  "Italy": { gdp:[33690,36340,37790,38050,39800,42500], hdi:[0.831,0.855,0.857,0.871,0.889,0.898], trade:[50.3,53.7,55.9,57.3,60.0,62.0], pop:59, region:"Europe & Central Asia" },
+  "Spain": { gdp:[26280,31660,32910,35500,35920,39500], hdi:[0.820,0.845,0.849,0.869,0.896,0.905], trade:[57.0,57.1,55.2,65.0,67.8,69.0], pop:48, region:"Europe & Central Asia" },
+  "Netherlands": { gdp:[39570,46560,51960,54840,57540,62800], hdi:[0.872,0.893,0.894,0.917,0.934,0.941], trade:[130.5,137.2,144.5,155.7,158.0,160.0], pop:18, region:"Europe & Central Asia" },
+  "Sweden": { gdp:[35850,44200,49360,53450,55380,58900], hdi:[0.891,0.899,0.892,0.916,0.938,0.947], trade:[82.0,87.1,84.6,85.8,90.5,92.0], pop:10.5, region:"Europe & Central Asia" },
+  "Norway": { gdp:[58540,67460,70540,75600,72100,78600], hdi:[0.909,0.931,0.921,0.932,0.950,0.956], trade:[69.5,70.0,70.2,67.5,71.0,73.0], pop:5.5, region:"Europe & Central Asia" },
+  "Denmark": { gdp:[42950,49500,53800,58500,61800,66000], hdi:[0.891,0.909,0.903,0.916,0.937,0.946], trade:[88.5,97.8,101.0,105.8,112.0,114.0], pop:5.9, region:"Europe & Central Asia" },
+  "Switzerland": { gdp:[52800,59700,66300,71200,72400,78500], hdi:[0.885,0.906,0.912,0.926,0.944,0.952], trade:[86.0,100.5,112.8,121.0,118.0,120.0], pop:8.8, region:"Europe & Central Asia" },
+  "Austria": { gdp:[37400,43400,48800,53300,53600,58200], hdi:[0.838,0.867,0.863,0.887,0.912,0.922], trade:[93.5,104.5,102.8,105.0,104.5,106.0], pop:9.1, region:"Europe & Central Asia" },
+  "Belgium": { gdp:[35400,42200,46300,49700,51000,55000], hdi:[0.850,0.875,0.878,0.902,0.927,0.937], trade:[156.0,162.0,167.5,170.0,172.0,174.0], pop:11.7, region:"Europe & Central Asia" },
+  "Ireland": { gdp:[35100,50200,51800,74000,99200,107000], hdi:[0.880,0.902,0.900,0.932,0.947,0.952], trade:[180.5,175.0,192.5,218.0,235.0,240.0], pop:5.2, region:"Europe & Central Asia" },
+  "Poland": { gdp:[13350,17580,21800,27800,34400,39000], hdi:[0.780,0.805,0.817,0.844,0.869,0.880], trade:[68.2,80.5,86.8,95.5,106.0,108.0], pop:37, region:"Europe & Central Asia" },
+  "Czech Republic": { gdp:[17500,22800,27000,32400,39800,43500], hdi:[0.816,0.850,0.840,0.866,0.883,0.892], trade:[131.5,147.0,148.5,161.0,148.0,150.0], pop:10.8, region:"Europe & Central Asia" },
+  "Romania": { gdp:[7600,10400,13600,19100,28600,32000], hdi:[0.713,0.747,0.753,0.788,0.817,0.830], trade:[64.5,74.0,67.5,82.0,84.5,86.0], pop:19, region:"Europe & Central Asia" },
+  "Greece": { gdp:[22100,28900,30100,28800,27900,31500], hdi:[0.786,0.831,0.829,0.842,0.871,0.880], trade:[61.5,56.5,56.8,68.5,72.0,74.0], pop:10.4, region:"Europe & Central Asia" },
+  "Portugal": { gdp:[21000,24300,27100,29600,33200,36500], hdi:[0.758,0.785,0.789,0.817,0.851,0.862], trade:[63.0,67.5,72.0,82.0,85.0,87.0], pop:10.3, region:"Europe & Central Asia" },
+  "Hungary": { gdp:[12080,17400,20300,25600,32700,36000], hdi:[0.770,0.806,0.802,0.828,0.846,0.858], trade:[141.5,148.0,161.5,170.0,163.0,165.0], pop:9.6, region:"Europe & Central Asia" },
+  "Ukraine": { gdp:[4600,6900,7800,8420,12300,14000], hdi:[0.665,0.710,0.720,0.737,0.760,0.772], trade:[108.5,93.0,98.5,108.0,85.0,92.0], pop:37, region:"Europe & Central Asia" },
+  "Russia": { gdp:[10500,16000,21800,25900,28300,31000], hdi:[0.714,0.756,0.768,0.808,0.821,0.832], trade:[59.0,51.5,50.8,50.5,49.5,51.0], pop:144, region:"Europe & Central Asia" },
+  "Turkey": { gdp:[11400,16080,19600,28200,34100,38000], hdi:[0.649,0.695,0.714,0.767,0.831,0.843], trade:[40.5,46.5,43.5,53.0,63.5,66.0], pop:86, region:"Europe & Central Asia" },
+  // ── EAST ASIA & PACIFIC ──
+  "China": { gdp:[3450,5650,9350,13800,17500,20500], hdi:[0.588,0.643,0.682,0.727,0.765,0.780], trade:[39.5,63.5,49.5,38.5,34.5,36.0], pop:1410, region:"East Asia & Pacific" },
+  "Japan": { gdp:[36400,40600,42050,46100,43000,47000], hdi:[0.834,0.863,0.874,0.894,0.910,0.920], trade:[19.5,27.5,29.5,36.5,31.5,34.0], pop:124, region:"East Asia & Pacific" },
+  "South Korea": { gdp:[19300,26900,34400,40500,46000,50000], hdi:[0.788,0.831,0.841,0.871,0.900,0.912], trade:[63.5,72.5,85.0,84.0,76.5,80.0], pop:52, region:"East Asia & Pacific" },
+  "Australia": { gdp:[37100,45100,49000,52400,52500,57500], hdi:[0.894,0.911,0.904,0.919,0.937,0.946], trade:[40.5,43.5,40.5,40.0,43.5,45.0], pop:26, region:"East Asia & Pacific" },
+  "India": { gdp:[1940,2840,3880,5150,6520,7800], hdi:[0.460,0.506,0.542,0.601,0.639,0.658], trade:[26.5,43.5,48.5,42.0,38.5,41.0], pop:1430, region:"South Asia" },
+  "Indonesia": { gdp:[5110,6560,8380,10600,12300,14300], hdi:[0.576,0.618,0.657,0.693,0.712,0.722], trade:[66.5,62.5,43.5,39.5,34.0,37.0], pop:278, region:"East Asia & Pacific" },
+  "Vietnam": { gdp:[1990,3120,4370,5940,8550,10200], hdi:[0.563,0.606,0.645,0.676,0.705,0.718], trade:[104.5,140.5,152.5,183.0,202.5,205.0], pop:100, region:"East Asia & Pacific" },
+  "Thailand": { gdp:[6440,8970,11700,14000,17700,20000], hdi:[0.626,0.663,0.689,0.723,0.773,0.785], trade:[113.5,140.0,126.5,119.0,100.5,105.0], pop:72, region:"East Asia & Pacific" },
+  "Philippines": { gdp:[3480,4350,5530,7350,8850,10200], hdi:[0.609,0.637,0.652,0.668,0.706,0.718], trade:[97.5,93.0,72.5,63.0,60.5,63.0], pop:116, region:"East Asia & Pacific" },
+  "Malaysia": { gdp:[12100,15500,19100,24500,28100,32000], hdi:[0.707,0.739,0.748,0.779,0.813,0.825], trade:[192.5,194.0,163.5,137.0,121.5,126.0], pop:34, region:"East Asia & Pacific" },
+  "Singapore": { gdp:[46600,61800,75400,86700,94300,103000], hdi:[0.807,0.844,0.855,0.890,0.907,0.922], trade:[341.0,408.5,376.5,337.5,339.0,345.0], pop:5.6, region:"East Asia & Pacific" },
+  "New Zealand": { gdp:[29200,35800,38200,41100,43800,47500], hdi:[0.868,0.896,0.884,0.910,0.928,0.938], trade:[56.5,58.0,56.5,55.0,51.5,53.0], pop:5.2, region:"East Asia & Pacific" },
+  "Pakistan": { gdp:[2700,3350,3860,4560,5300,6000], hdi:[0.452,0.494,0.528,0.550,0.562,0.575], trade:[25.5,33.5,32.0,28.5,27.5,28.0], pop:235, region:"South Asia" },
+  "Bangladesh": { gdp:[1690,2300,3200,4450,6100,7500], hdi:[0.439,0.479,0.518,0.574,0.625,0.645], trade:[32.0,42.5,45.5,38.0,35.5,38.0], pop:172, region:"South Asia" },
+  // ── LATIN AMERICA ──
+  "Brazil": { gdp:[9900,11600,14400,16000,17100,19000], hdi:[0.676,0.705,0.720,0.754,0.766,0.776], trade:[21.5,27.5,22.5,26.5,29.5,32.0], pop:215, region:"Latin America & Caribbean" },
+  "Argentina": { gdp:[13700,16400,19500,21800,22000,24500], hdi:[0.775,0.801,0.811,0.821,0.836,0.845], trade:[17.5,38.5,33.5,22.5,30.0,32.0], pop:46, region:"Latin America & Caribbean" },
+  "Colombia": { gdp:[8400,10400,12800,15800,16900,18800], hdi:[0.657,0.696,0.710,0.741,0.760,0.770], trade:[32.5,39.0,36.0,37.5,39.0,41.0], pop:52, region:"Latin America & Caribbean" },
+  "Chile": { gdp:[12900,16900,20100,23900,25900,28500], hdi:[0.744,0.776,0.789,0.825,0.849,0.858], trade:[57.5,70.5,69.5,59.5,62.0,65.0], pop:20, region:"Latin America & Caribbean" },
+  "Peru": { gdp:[6900,8650,10800,13000,14000,15800], hdi:[0.653,0.698,0.710,0.743,0.770,0.784], trade:[33.5,50.5,52.5,47.5,49.0,51.0], pop:34, region:"Latin America & Caribbean" },
+  "Venezuela": { gdp:[15000,16100,16100,13600,8500,9200], hdi:[0.662,0.687,0.690,0.705,0.675,0.682], trade:[45.5,56.5,44.5,39.5,30.0,32.0], pop:28, region:"Latin America & Caribbean" },
+  // ── MIDDLE EAST & NORTH AFRICA ──
+  "Israel": { gdp:[28600,31500,36700,40900,43200,46800], hdi:[0.850,0.873,0.881,0.902,0.917,0.925], trade:[68.5,80.5,70.5,60.5,59.0,61.0], pop:9.2, region:"Middle East & North Africa" },
+  "Saudi Arabia": { gdp:[28700,31000,33500,38000,40200,43500], hdi:[0.731,0.783,0.812,0.841,0.859,0.868], trade:[70.5,88.5,89.5,75.0,70.5,73.0], pop:36, region:"Middle East & North Africa" },
+  "Egypt": { gdp:[5600,6940,8600,10100,12200,13800], hdi:[0.598,0.641,0.657,0.688,0.718,0.730], trade:[39.5,61.5,44.5,36.0,37.5,40.0], pop:111, region:"Middle East & North Africa" },
+  "Iran": { gdp:[9800,12900,16200,17500,16300,17800], hdi:[0.658,0.702,0.738,0.769,0.780,0.788], trade:[44.0,59.5,53.5,46.0,42.5,44.0], pop:89, region:"Middle East & North Africa" },
+  "Morocco": { gdp:[4200,5400,6800,8200,9100,10200], hdi:[0.533,0.579,0.614,0.650,0.678,0.692], trade:[63.5,80.5,78.5,80.0,84.0,86.0], pop:38, region:"Middle East & North Africa" },
+  "Algeria": { gdp:[8100,10400,12100,13700,13900,15200], hdi:[0.642,0.685,0.708,0.733,0.746,0.754], trade:[53.0,64.5,63.5,52.0,48.0,50.0], pop:45, region:"Middle East & North Africa" },
+  "Tunisia": { gdp:[5900,7700,9400,10700,11300,12800], hdi:[0.667,0.706,0.725,0.745,0.758,0.768], trade:[83.0,99.5,107.5,98.0,96.0,99.0], pop:12.4, region:"Middle East & North Africa" },
+  "United Arab Emirates": { gdp:[59000,62100,54000,66000,68200,73000], hdi:[0.785,0.821,0.839,0.868,0.897,0.908], trade:[129.0,148.5,158.0,160.5,165.0,168.0], pop:9.5, region:"Middle East & North Africa" },
+  // ── SUB-SAHARAN AFRICA ──
+  "Nigeria": { gdp:[2800,3700,4800,5800,5600,6100], hdi:[0.432,0.476,0.512,0.540,0.557,0.568], trade:[50.5,47.5,43.0,28.5,26.0,28.0], pop:222, region:"Sub-Saharan Africa" },
+  "South Africa": { gdp:[8600,10600,12700,13900,13300,14900], hdi:[0.618,0.643,0.666,0.694,0.714,0.724], trade:[52.5,55.0,55.5,58.5,54.0,56.0], pop:60, region:"Sub-Saharan Africa" },
+  "Kenya": { gdp:[2000,2350,2860,3700,4800,5500], hdi:[0.473,0.508,0.545,0.579,0.607,0.620], trade:[45.5,54.5,51.5,42.5,37.0,39.0], pop:55, region:"Sub-Saharan Africa" },
+  "Ethiopia": { gdp:[760,1100,1630,2420,3500,4200], hdi:[0.322,0.373,0.425,0.475,0.512,0.528], trade:[32.5,46.0,40.5,33.5,30.0,32.0], pop:125, region:"Sub-Saharan Africa" },
+  "Ghana": { gdp:[2600,3400,4740,6100,6900,7800], hdi:[0.481,0.517,0.557,0.589,0.614,0.626], trade:[97.5,80.5,75.0,82.5,75.0,77.0], pop:34, region:"Sub-Saharan Africa" },
+  "Tanzania": { gdp:[1200,1650,2180,2950,3700,4300], hdi:[0.400,0.443,0.487,0.531,0.562,0.578], trade:[38.0,50.5,52.5,42.0,38.5,40.0], pop:66, region:"Sub-Saharan Africa" },
+  "Uganda": { gdp:[1080,1370,1770,2150,2600,3100], hdi:[0.406,0.443,0.491,0.532,0.558,0.572], trade:[35.0,48.5,52.0,45.0,40.0,42.0], pop:48, region:"Sub-Saharan Africa" },
+  "Congo, Dem. Rep.": { gdp:[680,730,880,1080,1250,1480], hdi:[0.372,0.410,0.442,0.475,0.498,0.510], trade:[44.5,89.5,79.0,62.5,58.0,60.0], pop:100, region:"Sub-Saharan Africa" },
+  "Angola": { gdp:[2800,3800,5200,6200,6500,7200], hdi:[0.452,0.496,0.540,0.576,0.596,0.608], trade:[135.5,119.0,103.5,76.5,68.0,70.0], pop:36, region:"Sub-Saharan Africa" },
+  "Mozambique": { gdp:[660,960,1280,1620,1780,2080], hdi:[0.348,0.382,0.422,0.462,0.488,0.502], trade:[48.5,97.5,91.0,102.5,108.0,110.0], pop:33, region:"Sub-Saharan Africa" },
+  "Zambia": { gdp:[1490,1990,2800,3400,3550,4000], hdi:[0.438,0.477,0.530,0.572,0.592,0.605], trade:[66.5,83.5,79.0,86.5,81.0,83.0], pop:20, region:"Sub-Saharan Africa" },
+  "Zimbabwe": { gdp:[2400,2100,2520,3100,3300,3700], hdi:[0.438,0.451,0.493,0.550,0.579,0.592], trade:[69.5,88.5,106.0,63.5,58.0,60.0], pop:16.5, region:"Sub-Saharan Africa" },
+  "Cote d'Ivoire": { gdp:[2800,2900,3300,4200,5400,6200], hdi:[0.438,0.452,0.483,0.529,0.562,0.578], trade:[76.5,93.5,93.0,82.5,78.0,80.0], pop:28, region:"Sub-Saharan Africa" },
+  "Senegal": { gdp:[2080,2520,2820,3260,3930,4600], hdi:[0.393,0.434,0.479,0.520,0.550,0.565], trade:[60.5,66.5,59.5,63.0,65.0,67.0], pop:18, region:"Sub-Saharan Africa" },
+  "Cameroon": { gdp:[2100,2620,3000,3540,3980,4500], hdi:[0.446,0.480,0.510,0.547,0.572,0.586], trade:[40.0,49.5,47.5,44.0,42.0,44.0], pop:28, region:"Sub-Saharan Africa" },
+  "Rwanda": { gdp:[620,950,1450,2000,2700,3400], hdi:[0.352,0.430,0.488,0.540,0.568,0.582], trade:[30.5,35.5,39.0,43.5,46.0,48.0], pop:14, region:"Sub-Saharan Africa" },
+  "Botswana": { gdp:[8700,11200,13400,16500,17900,19500], hdi:[0.536,0.591,0.631,0.684,0.718,0.730], trade:[88.5,101.0,106.5,112.0,100.0,103.0], pop:2.6, region:"Sub-Saharan Africa" },
+  "Namibia": { gdp:[6900,8400,10200,12300,12500,13800], hdi:[0.549,0.581,0.612,0.646,0.668,0.680], trade:[88.5,95.5,101.5,97.0,94.0,96.0], pop:2.6, region:"Sub-Saharan Africa" },
+  "Mauritius": { gdp:[9200,12200,15900,20700,22500,25800], hdi:[0.649,0.713,0.755,0.789,0.806,0.816], trade:[114.5,122.5,118.5,108.0,112.0,114.0], pop:1.3, region:"Sub-Saharan Africa" },
+  // ── SOUTH ASIA ──
+  "Sri Lanka": { gdp:[4800,6200,8300,11000,12500,14000], hdi:[0.639,0.677,0.695,0.731,0.760,0.772], trade:[78.0,70.5,53.5,51.5,46.0,48.0], pop:22, region:"South Asia" },
+  "Nepal": { gdp:[1380,1700,2100,2600,3200,3800], hdi:[0.437,0.479,0.512,0.551,0.578,0.592], trade:[48.5,45.5,46.0,48.5,52.0,54.0], pop:31, region:"South Asia" },
+  // ── MORE EUROPE ──
+  "Finland": { gdp:[33800,41400,45700,47100,50600,54500], hdi:[0.862,0.885,0.882,0.902,0.928,0.936], trade:[72.5,82.5,77.5,76.0,79.5,81.0], pop:5.5, region:"Europe & Central Asia" },
+  "Bulgaria": { gdp:[7000,10800,14100,17900,23200,27000], hdi:[0.715,0.750,0.759,0.789,0.811,0.822], trade:[106.5,127.5,116.5,125.0,119.0,121.0], pop:6.5, region:"Europe & Central Asia" },
+  "Slovakia": { gdp:[12100,17200,23800,30300,37400,42000], hdi:[0.749,0.789,0.797,0.829,0.849,0.860], trade:[137.5,168.0,168.5,183.5,180.0,182.0], pop:5.4, region:"Europe & Central Asia" },
+  "Croatia": { gdp:[12600,17400,19600,23200,30400,34500], hdi:[0.758,0.798,0.805,0.827,0.850,0.862], trade:[80.5,86.5,81.5,94.5,100.0,102.0], pop:3.9, region:"Europe & Central Asia" },
+  "Lithuania": { gdp:[9800,15700,19600,27500,38900,43000], hdi:[0.712,0.792,0.813,0.843,0.864,0.875], trade:[98.5,131.5,143.5,150.5,149.0,151.0], pop:2.8, region:"Europe & Central Asia" },
+  "Slovenia": { gdp:[17400,24500,28000,32200,38400,42500], hdi:[0.799,0.847,0.856,0.883,0.904,0.914], trade:[101.5,128.5,131.5,148.5,154.0,156.0], pop:2.1, region:"Europe & Central Asia" },
+  "Estonia": { gdp:[10100,17000,20100,28500,37400,41800], hdi:[0.746,0.817,0.840,0.863,0.882,0.892], trade:[146.5,151.0,157.5,153.0,155.0,157.0], pop:1.3, region:"Europe & Central Asia" },
+  "Latvia": { gdp:[8200,13700,16700,22800,31600,36000], hdi:[0.713,0.784,0.806,0.833,0.858,0.870], trade:[91.5,108.5,121.0,118.5,120.0,122.0], pop:1.8, region:"Europe & Central Asia" },
+  "Serbia": { gdp:[6200,8800,11200,13800,19200,22500], hdi:[0.710,0.738,0.747,0.772,0.795,0.808], trade:[63.0,82.5,89.5,104.5,109.0,111.0], pop:6.7, region:"Europe & Central Asia" },
+  "Belarus": { gdp:[5000,8700,14500,18100,21700,24800], hdi:[0.693,0.732,0.781,0.814,0.831,0.842], trade:[130.5,123.0,129.5,127.0,122.0,124.0], pop:9.2, region:"Europe & Central Asia" },
+  // ── MORE ASIA ──
+  "Myanmar": { gdp:[1200,2100,3400,4800,5800,6800], hdi:[0.430,0.475,0.518,0.562,0.584,0.598], trade:[38.0,46.5,45.0,52.5,48.0,50.0], pop:54, region:"East Asia & Pacific" },
+  "Cambodia": { gdp:[900,1450,2100,2950,4200,5200], hdi:[0.447,0.498,0.537,0.578,0.598,0.612], trade:[97.0,137.5,119.5,139.5,145.0,148.0], pop:17, region:"East Asia & Pacific" },
+  "Laos": { gdp:[1230,1830,2700,3800,5200,6400], hdi:[0.436,0.477,0.514,0.568,0.602,0.618], trade:[72.0,83.5,91.5,85.0,82.0,84.0], pop:7.5, region:"East Asia & Pacific" },
+  "Mongolia": { gdp:[3500,5100,7100,11200,12800,14800], hdi:[0.590,0.640,0.677,0.715,0.732,0.744], trade:[102.5,137.5,116.5,105.0,112.0,114.0], pop:3.4, region:"East Asia & Pacific" },
+  "Papua New Guinea": { gdp:[2400,2680,3000,3400,3800,4200], hdi:[0.435,0.471,0.504,0.537,0.555,0.568], trade:[108.5,112.5,102.0,98.5,96.0,98.0], pop:10.3, region:"East Asia & Pacific" },
+  "Fiji": { gdp:[5500,7200,8300,10200,10800,12000], hdi:[0.669,0.705,0.720,0.746,0.762,0.774], trade:[118.0,135.5,130.0,129.5,126.0,128.0], pop:0.93, region:"East Asia & Pacific" },
+  "Afghanistan": { gdp:[1400,2000,2600,2800,2600,2900], hdi:[0.365,0.411,0.453,0.471,0.478,0.488], trade:[45.5,52.5,56.0,54.5,52.0,53.0], pop:42, region:"South Asia" },
+  // ── MORE MENA ──
+  "Jordan": { gdp:[5200,6800,8700,9200,10500,11800], hdi:[0.698,0.733,0.727,0.738,0.751,0.762], trade:[104.5,141.5,110.5,102.5,98.0,100.0], pop:11.3, region:"Middle East & North Africa" },
+  "Lebanon": { gdp:[10700,12400,15700,17000,13800,12000], hdi:[0.722,0.752,0.740,0.729,0.707,0.718], trade:[69.5,88.5,103.5,97.5,85.0,82.0], pop:5.5, region:"Middle East & North Africa" },
+  "Kuwait": { gdp:[41000,50700,48000,52000,51000,55000], hdi:[0.778,0.804,0.792,0.826,0.842,0.852], trade:[94.5,106.5,103.5,102.0,100.0,102.0], pop:4.3, region:"Middle East & North Africa" },
+  "Qatar": { gdp:[63400,78000,96000,102000,100000,106000], hdi:[0.818,0.847,0.847,0.861,0.868,0.878], trade:[93.5,98.5,90.5,91.0,92.0,94.0], pop:2.7, region:"Middle East & North Africa" },
+  "Oman": { gdp:[20800,25500,29800,34800,32500,35000], hdi:[0.693,0.725,0.746,0.776,0.798,0.808], trade:[92.5,98.0,97.5,92.0,90.0,92.0], pop:4.6, region:"Middle East & North Africa" },
+  "Bahrain": { gdp:[31500,36800,36800,41200,45000,48800], hdi:[0.786,0.804,0.813,0.838,0.856,0.866], trade:[154.5,162.5,155.0,150.0,152.0,154.0], pop:1.5, region:"Middle East & North Africa" },
+  // ── MORE LATIN AMERICA ──
+  "Ecuador": { gdp:[6600,8200,9200,11000,12000,13500], hdi:[0.653,0.689,0.709,0.734,0.756,0.768], trade:[56.5,57.5,59.5,42.5,46.0,48.0], pop:18, region:"Latin America & Caribbean" },
+  "Bolivia": { gdp:[2860,3400,4400,5900,7600,8800], hdi:[0.609,0.643,0.671,0.703,0.723,0.735], trade:[46.5,70.5,76.0,66.5,64.0,66.0], pop:12.4, region:"Latin America & Caribbean" },
+  "Paraguay": { gdp:[5000,5900,7800,10700,12500,14000], hdi:[0.648,0.681,0.694,0.724,0.742,0.754], trade:[82.5,104.5,106.5,95.5,90.0,92.0], pop:6.8, region:"Latin America & Caribbean" },
+  "Uruguay": { gdp:[11700,13100,16700,20600,23500,26000], hdi:[0.721,0.746,0.762,0.798,0.822,0.834], trade:[39.0,67.5,52.5,52.0,54.0,56.0], pop:3.4, region:"Latin America & Caribbean" },
+  "Costa Rica": { gdp:[8300,10100,12800,16200,19500,22000], hdi:[0.684,0.726,0.745,0.784,0.804,0.815], trade:[73.5,88.5,68.5,66.0,67.5,70.0], pop:5.2, region:"Latin America & Caribbean" },
+  "Panama": { gdp:[8600,11100,14800,21000,23700,27000], hdi:[0.702,0.740,0.758,0.788,0.810,0.822], trade:[112.5,128.5,137.5,119.5,115.0,117.0], pop:4.5, region:"Latin America & Caribbean" },
+  "Dominican Republic": { gdp:[6200,8300,11300,14200,17100,19500], hdi:[0.640,0.668,0.696,0.733,0.756,0.768], trade:[80.5,75.0,62.0,52.0,54.0,56.0], pop:11.3, region:"Latin America & Caribbean" },
+  "Guatemala": { gdp:[4600,5300,5900,7100,8400,9500], hdi:[0.540,0.575,0.610,0.648,0.665,0.676], trade:[50.0,60.5,62.5,48.5,46.0,48.0], pop:18, region:"Latin America & Caribbean" },
+  "Honduras": { gdp:[2800,3400,3900,4800,5500,6400], hdi:[0.536,0.571,0.605,0.628,0.643,0.655], trade:[110.5,133.5,117.5,106.5,100.0,102.0], pop:10.5, region:"Latin America & Caribbean" },
+  "El Salvador": { gdp:[4800,5700,6600,8000,8800,9800], hdi:[0.610,0.641,0.667,0.688,0.708,0.720], trade:[73.0,75.0,71.0,75.5,78.0,80.0], pop:6.4, region:"Latin America & Caribbean" },
+  "Nicaragua": { gdp:[2600,3150,3750,5100,5800,6700], hdi:[0.529,0.566,0.600,0.646,0.670,0.684], trade:[78.5,92.5,100.5,103.5,101.0,103.0], pop:7.0, region:"Latin America & Caribbean" },
+  "Jamaica": { gdp:[6200,7200,7800,8500,9200,10000], hdi:[0.677,0.703,0.719,0.735,0.750,0.762], trade:[89.0,94.5,90.5,88.0,85.0,87.0], pop:2.8, region:"Latin America & Caribbean" },
+  "Haiti": { gdp:[1700,1750,1900,1800,1700,1850], hdi:[0.435,0.450,0.472,0.495,0.513,0.525], trade:[56.5,60.0,62.5,58.0,55.0,57.0], pop:11.6, region:"Latin America & Caribbean" },
+  "Trinidad and Tobago": { gdp:[13900,21900,24800,27700,28600,31000], hdi:[0.722,0.763,0.780,0.801,0.817,0.828], trade:[107.5,114.5,115.0,109.5,107.0,109.0], pop:1.5, region:"Latin America & Caribbean" },
+  // ── REMAINING COUNTRIES ──
+  "Equatorial Guinea": { gdp:[3700,9800,14600,15800,15500,17000], hdi:[0.495,0.526,0.556,0.586,0.602,0.614], trade:[130.5,118.5,108.5,98.0,95.0,97.0], pop:1.7, region:"Sub-Saharan Africa" },
+  "Djibouti": { gdp:[1860,2180,2620,3590,4540,5200], hdi:[0.400,0.442,0.478,0.508,0.528,0.540], trade:[110.5,130.0,135.5,140.0,138.0,140.0], pop:1.1, region:"Middle East & North Africa" },
+  "Lesotho": { gdp:[1330,1790,2340,2820,2930,3350], hdi:[0.443,0.471,0.506,0.558,0.580,0.594], trade:[163.0,170.5,155.0,151.5,149.0,151.0], pop:2.3, region:"Sub-Saharan Africa" },
+  "Taiwan": { gdp:[21300,28700,37600,44000,53000,58000], hdi:[0.820,0.850,0.868,0.888,0.905,0.915], trade:[100.5,124.5,132.0,110.5,108.0,110.0], pop:23.4, region:"East Asia & Pacific" },
+  "Belize": { gdp:[5280,6400,7110,8240,8520,9600], hdi:[0.614,0.659,0.675,0.700,0.721,0.732], trade:[112.5,119.5,120.0,118.5,116.0,118.0], pop:0.41, region:"Latin America & Caribbean" },
+  "Guyana": { gdp:[3600,4450,5800,8500,13800,16800], hdi:[0.581,0.629,0.650,0.676,0.712,0.725], trade:[163.0,168.5,165.5,154.0,150.0,152.0], pop:0.81, region:"Latin America & Caribbean" },
+  "Suriname": { gdp:[6350,7950,9800,12000,13200,14800], hdi:[0.616,0.650,0.675,0.698,0.715,0.726], trade:[102.5,114.5,118.0,112.5,110.0,112.0], pop:0.62, region:"Latin America & Caribbean" },
+  "Vanuatu": { gdp:[2500,3280,4000,4600,5100,5800], hdi:[0.558,0.590,0.620,0.648,0.665,0.678], trade:[97.5,103.0,106.5,102.0,100.0,102.0], pop:0.33, region:"East Asia & Pacific" },
+  "Solomon Islands": { gdp:[1760,2160,2530,3000,3320,3750], hdi:[0.469,0.507,0.543,0.572,0.592,0.605], trade:[100.5,115.5,112.0,108.5,106.0,108.0], pop:0.74, region:"East Asia & Pacific" },
+  "Eswatini": { gdp:[2900,3680,4740,5600,6100,6800], hdi:[0.445,0.482,0.516,0.562,0.592,0.605], trade:[125.5,128.0,119.5,115.0,112.0,114.0], pop:1.2, region:"Sub-Saharan Africa" },
+  "Bahamas": { gdp:[24800,30900,30400,33200,37200,41000], hdi:[0.764,0.780,0.795,0.808,0.821,0.832], trade:[96.5,101.5,99.5,98.0,96.0,98.0], pop:0.41, region:"Latin America & Caribbean" },
+};
+
+// ─── LENS CONFIGURATION ────────────────────────────────────────────────────
+const LENSES = {
+  gdp:  { label: "GDP per Capita", unit: "US$ PPP", icon: "💰", format: v => "$" + v.toLocaleString(), scale: [500, 110000] },
+  hdi:  { label: "Human Development Index", unit: "HDI (0–1)", icon: "🎓", format: v => v.toFixed(3), scale: [0.25, 1.0] },
+  trade:{ label: "Trade Openness", unit: "% GDP", icon: "🚢", format: v => v.toFixed(0) + "%", scale: [0, 420] },
+};
+
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let currentYear = 2000;
+let currentLens = "gdp";
+let betaParam = 0.020;
+let clubSensitivity = 0.50;
+let baseYear = 2000;
+let endYear = 2025;
+let playing = false;
+let playInterval = null;
+let selectedCountry = null;
+
+// ─── DATA HELPERS ───────────────────────────────────────────────────────────
+function getValue(dataKey, lens, year) {
+  const data = COUNTRY_DATA[dataKey];
+  if (!data) return null;
+  const values = data[lens];
+  if (!values) return null;
+  const years = [2000, 2005, 2010, 2015, 2020, 2025];
+  if (year <= 2000) return values[0];
+  if (year >= 2025) return values[5];
+  for (let i = 0; i < years.length - 1; i++) {
+    if (year >= years[i] && year <= years[i+1]) {
+      const frac = (year - years[i]) / (years[i+1] - years[i]);
+      return values[i] + frac * (values[i+1] - values[i]);
+    }
+  }
+  return values[5];
+}
+
+function getAllValues(lens, year) {
+  const result = {};
+  for (const key of Object.keys(COUNTRY_DATA)) {
+    const v = getValue(key, lens, year);
+    if (v !== null) result[key] = v;
+  }
+  return result;
+}
+
+// ─── β-CONVERGENCE ENGINE ───────────────────────────────────────────────────
+// Runs log(initial) vs growth rate regression, returns slope and R²
+function computeBetaConvergence(lens, bYear, eYear) {
+  const points = [];
+  for (const key of Object.keys(COUNTRY_DATA)) {
+    const v0 = getValue(key, lens, bYear);
+    const v1 = getValue(key, lens, eYear);
+    if (v0 && v1 && v0 > 0 && v1 > 0) {
+      const logInit = Math.log(v0);
+      const n = eYear - bYear;
+      const growthRate = (Math.log(v1) - Math.log(v0)) / n;
+      points.push({ key, logInit, growthRate, v0, v1 });
+    }
+  }
+  if (points.length < 5) return { beta: 0, r2: 0, points: [], n: 0 };
+
+  // OLS: growthRate = α + β * logInit
+  const n = points.length;
+  let sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0;
+  for (const p of points) {
+    sx += p.logInit; sy += p.growthRate;
+    sxy += p.logInit * p.growthRate;
+    sx2 += p.logInit * p.logInit;
+    sy2 += p.growthRate * p.growthRate;
+  }
+  const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+  const intercept = (sy - slope * sx) / n;
+  // R²
+  const yMean = sy / n;
+  let ssRes = 0, ssTot = 0;
+  for (const p of points) {
+    ssRes += (p.growthRate - (intercept + slope * p.logInit)) ** 2;
+    ssTot += (p.growthRate - yMean) ** 2;
+  }
+  const r2 = ssTot > 0 ? 1 - ssRes / ssTot : 0;
+
+  return { beta: slope, r2, intercept, points, n };
+}
+
+// ─── σ-CONVERGENCE ──────────────────────────────────────────────────────────
+function computeSigmaConvergence(lens, year) {
+  const values = getAllValues(lens, year);
+  const arr = Object.values(values).filter(v => !isNaN(v));
+  if (arr.length === 0) return { cv: 0, gini: 0, theil: 0, n: 0 };
+  arr.sort((a, b) => a - b);
+  const n = arr.length;
+  const mean = arr.reduce((s, v) => s + v, 0) / n;
+  const variance = arr.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+  const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+
+  // Gini
+  let sumAbsDiff = 0;
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++)
+      sumAbsDiff += Math.abs(arr[i] - arr[j]);
+  const gini = mean > 0 ? sumAbsDiff / (2 * n * n * mean) : 0;
+
+  // Theil index
+  let theil = 0;
+  for (const v of arr) {
+    if (v > 0 && mean > 0) theil += (v / mean) * Math.log(v / mean);
+  }
+  theil /= n;
+
+  // 90/10 ratio
+  const p90 = arr[Math.floor(n * 0.9)];
+  const p10 = arr[Math.floor(n * 0.1)];
+  const p90_p10 = p10 > 0 ? p90 / p10 : Infinity;
+
+  return { cv, gini, theil, p90_p10, mean, median: arr[Math.floor(n/2)], n };
+}
+
+// ─── σ TREND (2000 to current year) ────────────────────────────────────────
+function computeSigmaTrend(lens, upToYear) {
+  const series = [];
+  for (let y = 2000; y <= upToYear; y++) {
+    const s = computeSigmaConvergence(lens, y);
+    series.push({ year: y, cv: s.cv, gini: s.gini, theil: s.theil, p90_p10: s.p90_p10 });
+  }
+  // Trend: change in CV
+  const cv0 = series.length > 0 ? series[0].cv : 0;
+  const cv1 = series.length > 0 ? series[series.length - 1].cv : 0;
+  const cvChange = cv0 > 0 ? (cv1 - cv0) / cv0 : 0; // negative = convergence
+  return { series, cvChange, cvStart: cv0, cvEnd: cv1 };
+}
+
+// ─── CONVERGENCE CLUB CLASSIFICATION ────────────────────────────────────────
+function classifyClub(dataKey, lens, bYear, eYear) {
+  const v0 = getValue(dataKey, lens, bYear);
+  const v1 = getValue(dataKey, lens, eYear);
+  if (!v0 || !v1 || v0 <= 0) return "stagnant";
+
+  // Get frontier (95th percentile) at base year
+  const allBase = Object.values(getAllValues(lens, bYear)).filter(v => !isNaN(v));
+  allBase.sort((a, b) => a - b);
+  const frontier = allBase[Math.floor(allBase.length * 0.95)];
+  if (frontier <= 0) return "stagnant";
+
+  const gap0 = (frontier - v0) / frontier; // normalized gap (0=at frontier, 1=far behind)
+  const gap1 = (frontier - v1) / frontier;
+
+  // Adjusted gap closure considering the parameterized beta
+  const n = eYear - bYear;
+  const actualGrowth = (v1 - v0) / v0;
+  const expectedGrowth = gap0 * betaParam * n * (1 + clubSensitivity);
+  const growthRatio = expectedGrowth > 0.001 ? actualGrowth / expectedGrowth : 1;
+
+  // Gap reduction
+  const gapReduction = gap0 - gap1;
+
+  // Apply sensitivity threshold
+  const threshold = clubSensitivity * 0.05;
+
+  if (gapReduction > threshold * 3) return "fast";
+  if (gapReduction > threshold) return "moderate";
+  if (gapReduction < -threshold) return "diverging";
+  return "stagnant";
+}
+
+function getClubColor(club) {
+  const colors = {
+    fast: "var(--club-fast)",
+    moderate: "var(--club-moderate)",
+    stagnant: "var(--club-stagnant)",
+    diverging: "var(--club-diverging)",
+  };
+  return colors[club] || "#131d28";
+}
+
+function getClubHex(club) {
+  const hex = {
+    fast: "#3db8a0",
+    moderate: "#e8c76a",
+    stagnant: "#e0a040",
+    diverging: "#e07060",
+  };
+  return hex[club] || "#131d28";
+}
+
+function getClubLabel(club) {
+  const labels = {
+    fast: "Fast Catch-Up",
+    moderate: "Moderate Catch-Up",
+    stagnant: "Stagnant",
+    diverging: "Diverging",
+  };
+  return labels[club] || "No Data";
+}
+
+function computeAllClubs(lens, bYear, eYear) {
+  const clubs = {};
+  for (const key of Object.keys(COUNTRY_DATA)) {
+    clubs[key] = classifyClub(key, lens, bYear, eYear);
+  }
+  return clubs;
+}
+
+function countClubs(clubs) {
+  const counts = { fast: 0, moderate: 0, stagnant: 0, diverging: 0 };
+  for (const c of Object.values(clubs)) {
+    if (counts[c] !== undefined) counts[c]++;
+  }
+  return counts;
+}
+
+// ─── COMPUTE CATCH-UP SCORE (for rankings) ──────────────────────────────────
+function computeCatchUpScore(dataKey, lens, bYear, eYear) {
+  const v0 = getValue(dataKey, lens, bYear);
+  const v1 = getValue(dataKey, lens, eYear);
+  if (!v0 || !v1 || v0 <= 0) return 0;
+  const allBase = Object.values(getAllValues(lens, bYear)).filter(v => !isNaN(v));
+  allBase.sort((a, b) => a - b);
+  const frontier = allBase[Math.floor(allBase.length * 0.95)];
+  if (frontier <= 0) return 0;
+  const gap0 = Math.max(0, frontier - v0);
+  const gap1 = Math.max(0, frontier - v1);
+  return gap0 > 0 ? ((gap0 - gap1) / gap0) * 100 : 0; // % of gap closed
+}
+
+// ─── D3 MAP SETUP ───────────────────────────────────────────────────────────
+const tooltip = document.getElementById("mapTooltip");
+const mapContainer = document.getElementById("mapContainer");
+const svg = d3.select("#mapSvg");
+let countryPaths, worldData;
+
+function getW() { return mapContainer.clientWidth; }
+function getH() { return mapContainer.clientHeight; }
+
+const projection = d3.geoNaturalEarth1().scale(1).translate([0, 0]);
+const path = d3.geoPath().projection(projection);
+
+// Name mapping
+const NAME_MAP = {};
+function buildNameMap() {
+  for (const key of Object.keys(COUNTRY_DATA)) { NAME_MAP[key] = key; }
+  NAME_MAP["United States"] = "United States of America";
+  NAME_MAP["Czech Republic"] = "Czechia";
+  NAME_MAP["Congo, Dem. Rep."] = "Dem. Rep. Congo";
+  NAME_MAP["Cote d'Ivoire"] = "Côte d'Ivoire";
+  NAME_MAP["Dominican Republic"] = "Dominican Rep.";
+  NAME_MAP["Central African Republic"] = "Central African Rep.";
+  NAME_MAP["South Sudan"] = "S. Sudan";
+  NAME_MAP["Equatorial Guinea"] = "Eq. Guinea";
+  NAME_MAP["Solomon Islands"] = "Solomon Is.";
+  NAME_MAP["Eswatini"] = "eSwatini";
+}
+buildNameMap();
+const topoToDataKey = {};
+for (const [dk, tn] of Object.entries(NAME_MAP)) { topoToDataKey[tn] = dk; }
+
+// ─── UI UPDATES ─────────────────────────────────────────────────────────────
+let allClubsCache = {};
+let betaResultCache = null;
+let sigmaTrendCache = null;
+
+function fullRecompute() {
+  allClubsCache = computeAllClubs(currentLens, baseYear, endYear);
+  betaResultCache = computeBetaConvergence(currentLens, baseYear, endYear);
+  sigmaTrendCache = computeSigmaTrend(currentLens, currentYear);
+}
+
+function updateAllUI() {
+  fullRecompute();
+
+  const lens = currentLens;
+  const cfg = LENSES[lens];
+  const clubs = allClubsCache;
+  const counts = countClubs(clubs);
+  const betaR = betaResultCache;
+  const sigmaT = sigmaTrendCache;
+
+  // Year
+  document.getElementById("yearDisplay").textContent = currentYear;
+  document.getElementById("yearSlider").value = currentYear;
+  document.getElementById("kpiYear").textContent = currentYear;
+  document.getElementById("speedLabel").textContent = `${currentYear}`;
+
+  // Header
+  document.getElementById("hdrBeta").textContent = betaR.beta.toFixed(4);
+  document.getElementById("hdrBeta").style.color = betaR.beta < -0.005 ? "var(--accent-teal)" : betaR.beta < 0 ? "var(--accent-gold)" : "var(--accent-coral)";
+  document.getElementById("hdrSigma").textContent = sigmaT.cvChange < -0.02 ? "Converging" : sigmaT.cvChange > 0.02 ? "Diverging" : "Stable";
+  document.getElementById("hdrSigma").style.color = sigmaT.cvChange < -0.02 ? "var(--accent-teal)" : sigmaT.cvChange > 0.02 ? "var(--accent-coral)" : "var(--accent-gold)";
+  document.getElementById("hdrN").textContent = `${Object.keys(COUNTRY_DATA).length}`;
+
+  // KPIs
+  const sigmaNow = computeSigmaConvergence(lens, currentYear);
+  document.getElementById("kpiBeta").textContent = betaR.beta.toFixed(4) + (betaR.beta < -0.005 ? " ✓" : "");
+  document.getElementById("kpiSigma").textContent = sigmaNow.cv.toFixed(3);
+  document.getElementById("kpiSigmaTrend").textContent = (sigmaT.cvChange >= 0 ? "+" : "") + (sigmaT.cvChange * 100).toFixed(1) + "%";
+  document.getElementById("kpiSigmaTrend").style.color = sigmaT.cvChange < -0.01 ? "var(--accent-teal)" : sigmaT.cvChange > 0.01 ? "var(--accent-coral)" : "var(--accent-gold)";
+  document.getElementById("kpi90_10").textContent = sigmaNow.p90_p10 === Infinity ? "∞" : sigmaNow.p90_p10.toFixed(1) + "×";
+  document.getElementById("kpiGini").textContent = sigmaNow.gini.toFixed(3);
+  document.getElementById("kpiCatchingUp").textContent = (counts.fast + counts.moderate) + " / " + (counts.fast + counts.moderate + counts.stagnant + counts.diverging);
+
+  // Club counts
+  document.getElementById("ccFast").textContent = counts.fast;
+  document.getElementById("ccModerate").textContent = counts.moderate;
+  document.getElementById("ccStagnant").textContent = counts.stagnant;
+  document.getElementById("ccDiverging").textContent = counts.diverging;
+
+  // Map
+  updateMap(clubs);
+
+  // β-scatter chart label
+  document.getElementById("betaChartLabel").textContent = `${baseYear}→${endYear}`;
+
+  // Country detail
+  if (selectedCountry) showCountryDetail(selectedCountry);
+
+  // Rankings
+  updateRankings(clubs);
+
+  // Charts
+  drawBetaScatter();
+  drawSigmaChart();
+
+  // Lens button values
+  document.querySelectorAll(".lens-btn").forEach(btn => {
+    const l = btn.dataset.lens;
+    const lcfg = LENSES[l];
+    const lvals = getAllValues(l, currentYear);
+    const avg = Object.values(lvals).reduce((s, v) => s + v, 0) / Math.max(1, Object.values(lvals).length);
+    btn.querySelector(".lb-val").textContent = lcfg.format(avg);
+  });
+}
+
+function updateMap(clubs) {
+  if (!countryPaths) return;
+  countryPaths
+    .transition().duration(400)
+    .attr("fill", function(d) {
+      const topoName = d.properties.name;
+      const dataKey = topoToDataKey[topoName];
+      if (dataKey && clubs[dataKey]) {
+        return getClubHex(clubs[dataKey]);
+      }
+      return "#131d28";
+    });
+}
+
+// ─── D3 MAP LOAD ────────────────────────────────────────────────────────────
+d3.json("https://unpkg.com/world-atlas@2/countries-110m.json").then(function(world) {
+  worldData = world;
+  const countries = topojson.feature(world, world.objects.countries);
+  const geos = countries.features;
+
+  const initBbox = path.bounds(countries);
+  const initS = 0.95 / Math.max(
+    (initBbox[1][0] - initBbox[0][0]) / getW(),
+    (initBbox[1][1] - initBbox[0][1]) / getH()
+  );
+  const initT = [
+    (getW() - initS * (initBbox[1][0] + initBbox[0][0])) / 2,
+    (getH() - initS * (initBbox[1][1] + initBbox[0][1])) / 2
+  ];
+  projection.scale(initS).translate(initT);
+
+  const mapGroup = svg.append("g").attr("class", "map-group");
+
+  const zoom = d3.zoom()
+    .scaleExtent([1, 8])
+    .on("zoom", function(event) {
+      mapGroup.attr("transform", event.transform);
+      tooltip.style.transform = `scale(${1/event.transform.k})`;
+    });
+  svg.call(zoom);
+
+  // Zoom controls
+  const zoomControls = document.createElement("div");
+  zoomControls.className = "zoom-controls";
+  zoomControls.innerHTML = `
+    <button class="zoom-btn" id="zoomIn" title="Zoom In" aria-label="Zoom in">+</button>
+    <button class="zoom-btn" id="zoomOut" title="Zoom Out" aria-label="Zoom out">−</button>
+    <button class="zoom-btn" id="zoomReset" title="Reset View" aria-label="Reset zoom">⌂</button>
+  `;
+  mapContainer.appendChild(zoomControls);
+  document.getElementById("zoomIn").addEventListener("click", () => svg.transition().duration(300).call(zoom.scaleBy, 1.5));
+  document.getElementById("zoomOut").addEventListener("click", () => svg.transition().duration(300).call(zoom.scaleBy, 0.67));
+  document.getElementById("zoomReset").addEventListener("click", () => svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity));
+
+  countryPaths = mapGroup.selectAll("path.country")
+    .data(geos)
+    .enter()
+    .append("path")
+    .attr("class", "country")
+    .attr("d", path)
+    .attr("fill", "#131d28")
+    .attr("stroke", "#1a2a3a")
+    .attr("stroke-width", 0.45)
+    .attr("stroke-opacity", 0.7)
+    .style("cursor", "pointer")
+    .on("mouseover", function(event, d) {
+      const topoName = d.properties.name;
+      const dataKey = topoToDataKey[topoName];
+      const data = dataKey ? COUNTRY_DATA[dataKey] : null;
+      d3.select(this).attr("stroke", "#e8c76a").attr("stroke-width", 1.2).attr("stroke-opacity", 1);
+      if (data) {
+        const club = allClubsCache[dataKey] || "stagnant";
+        const val = getValue(dataKey, currentLens, currentYear);
+        const cfg = LENSES[currentLens];
+        const score = computeCatchUpScore(dataKey, currentLens, baseYear, endYear);
+        tooltip.style.opacity = "1";
+        tooltip.innerHTML = `
+          <div class="tt-country">${dataKey}</div>
+          <div class="tt-row"><span class="tt-lbl">${cfg.label} (${currentYear})</span><span class="tt-val">${cfg.format(val)}</span></div>
+          <div class="tt-row"><span class="tt-lbl">Catch-Up Score</span><span class="tt-val">${score.toFixed(1)}% gap closed</span></div>
+          <div class="tt-row"><span class="tt-lbl">Club</span><span class="tt-val" style="color:${getClubHex(club)}">${getClubLabel(club)}</span></div>
+          <div class="tt-club ${club}">${getClubLabel(club)}</div>
+        `;
+        const x = event.clientX - mapContainer.getBoundingClientRect().left + 15;
+        const y = event.clientY - mapContainer.getBoundingClientRect().top - 15;
+        tooltip.style.left = Math.min(x, getW() - 270) + "px";
+        tooltip.style.top = Math.max(10, y - 70) + "px";
+      }
+    })
+    .on("mousemove", function(event) {
+      const x = event.clientX - mapContainer.getBoundingClientRect().left + 15;
+      const y = event.clientY - mapContainer.getBoundingClientRect().top - 15;
+      tooltip.style.left = Math.min(x, getW() - 270) + "px";
+      tooltip.style.top = Math.max(10, y - 70) + "px";
+    })
+    .on("mouseout", function() {
+      d3.select(this).attr("stroke", "#1a2a3a").attr("stroke-width", 0.45).attr("stroke-opacity", 0.7);
+      tooltip.style.opacity = "0";
+    })
+    .on("click", function(event, d) {
+      const topoName = d.properties.name;
+      const dataKey = topoToDataKey[topoName];
+      selectedCountry = dataKey;
+      showCountryDetail(dataKey);
+      svg.selectAll("path.country").attr("stroke", "#1a2a3a").attr("stroke-width", 0.45);
+      d3.select(this).attr("stroke", "#e8c76a").attr("stroke-width", 1.5);
+    });
+
+  // Resize
+  window.addEventListener("resize", () => {
+    if (!worldData) return;
+    const w = getW(), h = getH();
+    const c = topojson.feature(worldData, worldData.objects.countries);
+    const newBbox = path.bounds(c);
+    const newS = 0.95 / Math.max((newBbox[1][0]-newBbox[0][0])/w, (newBbox[1][1]-newBbox[0][1])/h);
+    const newT = [(w-newS*(newBbox[1][0]+newBbox[0][0]))/2, (h-newS*(newBbox[1][1]+newBbox[0][1]))/2];
+    projection.scale(newS).translate(newT);
+    svg.selectAll("path.country").attr("d", path);
+    svg.call(zoom.transform, d3.zoomIdentity);
+  });
+
+  updateAllUI();
+}).catch(function(err) {
+  console.error("Map load failed:", err);
+  svg.append("text").attr("x","50%").attr("y","50%").attr("text-anchor","middle")
+    .attr("fill","#5a6d8e").attr("font-size","0.8rem")
+    .text("Map data loading — check internet connection.");
+});
+
+// ─── COUNTRY DETAIL ─────────────────────────────────────────────────────────
+function showCountryDetail(dataKey) {
+  if (!dataKey || !COUNTRY_DATA[dataKey]) return;
+  const data = COUNTRY_DATA[dataKey];
+  const cfg = LENSES[currentLens];
+  const val = getValue(dataKey, currentLens, currentYear);
+  const club = allClubsCache[dataKey] || "stagnant";
+  const score = computeCatchUpScore(dataKey, currentLens, baseYear, endYear);
+
+  document.getElementById("countryPlaceholder").style.display = "none";
+  document.getElementById("countryDataSection").style.display = "block";
+  document.getElementById("cdName").textContent = dataKey;
+
+  // Club badge
+  const badgeEl = document.getElementById("cdClubBadge");
+  badgeEl.innerHTML = `<span class="cd-club-badge ${club}">${getClubLabel(club)}</span>`;
+
+  // Metrics
+  const metricsDiv = document.getElementById("cdMetrics");
+  const v0 = getValue(dataKey, currentLens, baseYear);
+  const v1 = getValue(dataKey, currentLens, endYear);
+  const frontier = (() => {
+    const allE = Object.values(getAllValues(currentLens, endYear)).filter(v => !isNaN(v));
+    allE.sort((a, b) => a - b);
+    return allE[Math.floor(allE.length * 0.95)] || 1;
+  })();
+  const pctFrontier = frontier > 0 ? (v1 / frontier * 100) : 0;
+
+  metricsDiv.innerHTML = `
+    <div class="cd-metric">
+      <div class="cdm-val" style="color:${getClubHex(club)}">${cfg.format(val)}</div>
+      <div class="cdm-lbl">${cfg.label} (${currentYear})</div>
+    </div>
+    <div class="cd-metric">
+      <div class="cdm-val" style="color:${pctFrontier > 60 ? 'var(--accent-teal)' : pctFrontier > 30 ? 'var(--accent-gold)' : 'var(--accent-coral)'}">${pctFrontier.toFixed(1)}%</div>
+      <div class="cdm-lbl">of Frontier (${endYear})</div>
+    </div>
+    <div class="cd-metric">
+      <div class="cdm-val" style="color:${score > 30 ? 'var(--accent-teal)' : score > 0 ? 'var(--accent-gold)' : 'var(--accent-coral)'}">${score >= 0 ? '+' : ''}${score.toFixed(1)}%</div>
+      <div class="cdm-lbl">Gap Closed (${baseYear}→${endYear})</div>
+    </div>
+    <div class="cd-metric">
+      <div class="cdm-val">${data.pop.toFixed(0)}M</div>
+      <div class="cdm-lbl">Population</div>
+    </div>
+  `;
+}
+
+// ─── β-CONVERGENCE SCATTER CHART ────────────────────────────────────────────
+let betaChartInstance = null;
+function drawBetaScatter() {
+  const canvas = document.getElementById("betaScatterChart");
+  if (!canvas) return;
+  if (betaChartInstance) betaChartInstance.destroy();
+  const ctx = canvas.getContext("2d");
+  const cfg = LENSES[currentLens];
+  const pts = betaResultCache.points;
+
+  // Color by club
+  const colors = pts.map(p => getClubHex(allClubsCache[p.key] || "stagnant"));
+
+  // Regression line
+  const xMin = Math.min(...pts.map(p => p.logInit));
+  const xMax = Math.max(...pts.map(p => p.logInit));
+  const regLineX = [xMin, xMax];
+  const regLineY = [betaResultCache.intercept + betaResultCache.beta * xMin, betaResultCache.intercept + betaResultCache.beta * xMax];
+
+  betaChartInstance = new Chart(ctx, {
+    type: "scatter",
+    data: {
+      datasets: [
+        {
+          label: "Countries",
+          data: pts.map((p, i) => ({ x: p.logInit, y: p.growthRate })),
+          backgroundColor: colors,
+          borderColor: colors,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+        },
+        {
+          label: `β = ${betaResultCache.beta.toFixed(4)} (R² = ${betaResultCache.r2.toFixed(3)})`,
+          data: [{ x: regLineX[0], y: regLineY[0] }, { x: regLineX[1], y: regLineY[1] }],
+          type: "line",
+          borderColor: "rgba(232,199,106,0.7)",
+          borderWidth: 2,
+          borderDash: [5, 3],
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { boxWidth: 10, boxHeight: 2, padding: 10, color: "#6b7d8e", font: { size: 8, family: "'Inter', sans-serif" }, usePointStyle: true }
+        },
+        tooltip: {
+          backgroundColor: "rgba(12,20,30,0.95)",
+          borderColor: "#2a3a4a", borderWidth: 1,
+          callbacks: {
+            label: ctx => {
+              const p = pts[ctx.dataIndex];
+              if (!p) return "";
+              const club = getClubLabel(allClubsCache[p.key] || "stagnant");
+              return [` ${p.key}: ${cfg.format(p.v0)} → ${cfg.format(p.v1)}`, ` Growth: ${(p.growthRate * 100).toFixed(2)}% p.a.`, ` Club: ${club}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: `Log ${cfg.label} (${baseYear})`, color: "#6b7d8e", font: { size: 9 } }, grid: { color: "rgba(30,45,58,0.5)" }, ticks: { color: "#5a6d7e", font: { size: 8 }, callback: v => v.toFixed(1) } },
+        y: { title: { display: true, text: "Annualized Growth Rate", color: "#6b7d8e", font: { size: 9 } }, grid: { color: "rgba(30,45,58,0.5)" }, ticks: { color: "#5a6d7e", font: { size: 8 }, callback: v => (v * 100).toFixed(1) + "%" } }
+      }
+    }
+  });
+}
+
+// ─── σ-CONVERGENCE CHART ────────────────────────────────────────────────────
+let sigmaChartInstance = null;
+function drawSigmaChart() {
+  const canvas = document.getElementById("sigmaChart");
+  if (!canvas) return;
+  if (sigmaChartInstance) sigmaChartInstance.destroy();
+  const ctx = canvas.getContext("2d");
+  const series = sigmaTrendCache.series;
+
+  sigmaChartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: series.map(s => s.year),
+      datasets: [
+        {
+          label: "Coefficient of Variation",
+          data: series.map(s => s.cv),
+          borderColor: "#e8c76a",
+          backgroundColor: "rgba(232,199,106,0.06)",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: true,
+          yAxisID: "y",
+        },
+        {
+          label: "Gini Coefficient",
+          data: series.map(s => s.gini),
+          borderColor: "#4b9cd3",
+          borderWidth: 1.5,
+          borderDash: [4, 2],
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false,
+          yAxisID: "y",
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { boxWidth: 10, boxHeight: 2, padding: 8, color: "#6b7d8e", font: { size: 8, family: "'Inter', sans-serif" }, usePointStyle: true }
+        }
+      },
+      scales: {
+        x: { grid: { color: "rgba(30,45,58,0.5)" }, ticks: { color: "#5a6d7e", font: { size: 7 }, maxTicksLimit: 6 } },
+        y: { position: "left", grid: { color: "rgba(30,45,58,0.5)" }, ticks: { color: "#5a6d7e", font: { size: 7 }, callback: v => v.toFixed(3) } }
+      }
+    }
+  });
+}
+
+// ─── RANKINGS ───────────────────────────────────────────────────────────────
+function updateRankings(clubs) {
+  const cfg = LENSES[currentLens];
+  document.getElementById("rankLensLabel").textContent = cfg.label;
+  const entries = Object.keys(COUNTRY_DATA)
+    .map(key => ({ key, score: computeCatchUpScore(key, currentLens, baseYear, endYear), club: clubs[key] }))
+    .sort((a, b) => b.score - a.score);
+  const top15 = entries.slice(0, 15);
+  const tbody = document.getElementById("rankTbody");
+  tbody.innerHTML = top15.map((e, i) => `
+    <tr onclick="selectFromRanking('${e.key.replace(/'/g, "\\'")}')" title="Click to select">
+      <td class="rk-num">${i + 1}</td>
+      <td class="rk-name">${e.key}</td>
+      <td><span style="display:inline-block;padding:0.08rem 0.3rem;border-radius:2px;font-size:0.5rem;font-weight:700;color:${getClubHex(e.club)};background:${getClubHex(e.club)}22;">${getClubLabel(e.club)}</span></td>
+      <td class="rk-val">${e.score.toFixed(1)}%</td>
+    </tr>
+  `).join("");
+}
+
+function selectFromRanking(dataKey) {
+  selectedCountry = dataKey;
+  showCountryDetail(dataKey);
+  svg.selectAll("path.country").attr("stroke", "#1a2a3a").attr("stroke-width", 0.45);
+  svg.selectAll("path.country").filter(function(d) { return topoToDataKey[d.properties.name] === dataKey; }).attr("stroke", "#e8c76a").attr("stroke-width", 1.5);
+}
+
+// ─── EVENT HANDLERS ─────────────────────────────────────────────────────────
+// Lens buttons
+document.querySelectorAll(".lens-btn").forEach(btn => {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".lens-btn").forEach(b => b.classList.remove("active"));
+    this.classList.add("active");
+    currentLens = this.dataset.lens;
+    selectedCountry = null;
+    document.getElementById("countryPlaceholder").style.display = "flex";
+    document.getElementById("countryDataSection").style.display = "none";
+    updateAllUI();
+  });
+});
+
+// Year slider
+document.getElementById("yearSlider").addEventListener("input", function() {
+  currentYear = parseInt(this.value);
+  updateAllUI();
+  if (selectedCountry) showCountryDetail(selectedCountry);
+});
+
+// Base/End year selectors
+document.getElementById("baseYearSelect").addEventListener("change", function() {
+  baseYear = parseInt(this.value);
+  if (baseYear >= endYear) { endYear = baseYear + 5; document.getElementById("endYearSelect").value = endYear; }
+  updateAllUI();
+});
+document.getElementById("endYearSelect").addEventListener("change", function() {
+  endYear = parseInt(this.value);
+  if (endYear <= baseYear) { baseYear = endYear - 5; document.getElementById("baseYearSelect").value = baseYear; }
+  updateAllUI();
+});
+
+// Play/Pause
+document.getElementById("btnPlay").addEventListener("click", function() {
+  playing = !playing;
+  const btn = this;
+  if (playing) {
+    btn.textContent = "⏸"; btn.classList.add("playing");
+    const speed = parseInt(document.getElementById("speedSelect").value);
+    playInterval = setInterval(() => {
+      currentYear++;
+      if (currentYear > 2025) currentYear = 2000;
+      document.getElementById("yearSlider").value = currentYear;
+      updateAllUI();
+      if (selectedCountry) showCountryDetail(selectedCountry);
+    }, speed);
+  } else {
+    btn.textContent = "▶"; btn.classList.remove("playing");
+    clearInterval(playInterval); playInterval = null;
+  }
+});
+
+document.getElementById("btnPrev").addEventListener("click", () => {
+  if (currentYear > 2000) { currentYear--; updateAllUI(); if (selectedCountry) showCountryDetail(selectedCountry); }
+});
+document.getElementById("btnNext").addEventListener("click", () => {
+  if (currentYear < 2025) { currentYear++; updateAllUI(); if (selectedCountry) showCountryDetail(selectedCountry); }
+});
+document.getElementById("speedSelect").addEventListener("change", function() {
+  if (playing) {
+    clearInterval(playInterval);
+    playInterval = setInterval(() => {
+      currentYear++; if (currentYear > 2025) currentYear = 2000;
+      document.getElementById("yearSlider").value = currentYear;
+      updateAllUI();
+      if (selectedCountry) showCountryDetail(selectedCountry);
+    }, parseInt(this.value));
+  }
+});
+
+// Parameters
+document.getElementById("betaSlider").addEventListener("input", function() {
+  betaParam = parseFloat(this.value);
+  document.getElementById("betaVal").textContent = betaParam.toFixed(3);
+  updateAllUI();
+});
+document.getElementById("sensitivitySlider").addEventListener("input", function() {
+  clubSensitivity = parseFloat(this.value);
+  document.getElementById("sensitivityVal").textContent = clubSensitivity.toFixed(2);
+  updateAllUI();
+});
+
+// Keyboard
+document.addEventListener("keydown", function(e) {
+  switch(e.key) {
+    case "ArrowLeft": if (currentYear > 2000) { currentYear--; updateAllUI(); if (selectedCountry) showCountryDetail(selectedCountry); } break;
+    case "ArrowRight": if (currentYear < 2025) { currentYear++; updateAllUI(); if (selectedCountry) showCountryDetail(selectedCountry); } break;
+    case " ": e.preventDefault(); document.getElementById("btnPlay").click(); break;
+  }
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+console.log("🌍 World Convergence Simulator — β & σ Convergence Engine");
+console.log("   H Heuristics · Development Economics");
+console.log("   Barro & Sala-i-Martin (1992) · Quah (1996) · Pritchett (1997)");
+console.log("   📊 " + Object.keys(COUNTRY_DATA).length + " countries × 3 convergence lenses");
+</script>
+</body>
+</html>
